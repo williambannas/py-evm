@@ -1,3 +1,5 @@
+import json
+
 from typing import (
     Any,
     Iterable,
@@ -63,11 +65,12 @@ GENESIS_PARAMS = {
     'coinbase': constants.ZERO_ADDRESS,
     'transaction_root': constants.BLANK_ROOT_HASH,
     'receipt_root': constants.BLANK_ROOT_HASH,
-    'difficulty': 1,
+    'difficulty': 100,
     'block_number': constants.GENESIS_BLOCK_NUMBER,
     'gas_limit': constants.GENESIS_GAS_LIMIT,
     'extra_data': constants.GENESIS_EXTRA_DATA,
-    'nonce': constants.GENESIS_NONCE
+    'nonce': constants.GENESIS_NONCE,
+    'timestamp': 0000000000
 }
 
 
@@ -88,7 +91,8 @@ def chain_without_pow(
         genesis_params: Any,
         genesis_state: Any) -> MiningChain:
 
-    vm_without_pow = vm.configure(validate_seal=lambda block: None)
+    #vm_without_pow = vm.configure(validate_seal=lambda block: None)
+    vm_without_pow = vm.configure()
 
     klass = MiningChain.configure(
         __name__='TestChain',

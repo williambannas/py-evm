@@ -1,0 +1,32 @@
+{
+    "frontier": {
+        "1": {
+            "mix_hash": "a665727796a437cb0384cb53dab004a2f4f1e810c18b611f27a496c793d18469",
+            "nonce": "0000000000000033"
+        }
+    },
+    "homestead": {
+        "1": {
+            "mix_hash": "a665727796a437cb0384cb53dab004a2f4f1e810c18b611f27a496c793d18469",
+            "nonce": "0000000000000033"
+        }
+    },
+    "tangerine-whistle": {
+        "1": {
+            "mix_hash": "a665727796a437cb0384cb53dab004a2f4f1e810c18b611f27a496c793d18469",
+            "nonce": "0000000000000033"
+        }
+    },
+    "spurious-dragon": {
+        "1": {
+            "mix_hash": "a665727796a437cb0384cb53dab004a2f4f1e810c18b611f27a496c793d18469",
+            "nonce": "0000000000000033"
+        }
+    },
+    "byzantium": {
+        "1": {
+            "mix_hash": "0947540a38c9e2ed6904e933151f4db521285c677903adedbcc32952a57f554f",
+            "nonce": "0000000000000026"
+        }
+    }
+}

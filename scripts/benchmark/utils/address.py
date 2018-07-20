@@ -24,11 +24,12 @@ from eth_typing import (
 )
 
 
-def generate_random_keypair_and_address() -> Tuple[PrivateKey, PublicKey, Address]:
+def generate_random_keypair_and_address(seed: int) -> Tuple[PrivateKey, PublicKey, Address]:
+    random.seed(seed)
     priv_key = keys.PrivateKey(pad32(int_to_big_endian(random.getrandbits(8 * 32))))
     return priv_key, priv_key.public_key, Address(priv_key.public_key.to_canonical_address())
 
 
-def generate_random_address() -> Address:
-    private_key, public_key, address = generate_random_keypair_and_address()
+def generate_random_address(seed: int) -> Address:
+    private_key, public_key, address = generate_random_keypair_and_address(seed)
     return address

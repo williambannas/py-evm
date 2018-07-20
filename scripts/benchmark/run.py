@@ -43,12 +43,12 @@ from utils.shellart import (
 
 HEADER = (
     "\n"
-    "______                 _                          _     \n"
-    "| ___ \               | |                        | |    \n"
-    "| |_/ / ___ _ __   ___| |__  _ __ ___   __ _ _ __| | __ \n"
-    "| ___ \/ _ \ '_ \ / __| '_ \| '_ ` _ \ / _` | '__| |/ / \n"
-    "| |_/ /  __/ | | | (__| | | | | | | | | (_| | |  |   <  \n"
-    "\____/ \___|_| |_|\___|_| |_|_| |_| |_|\__,_|_|  |_|\_\\\n"
+    "______                 _                          _      ______    _ _\n"
+    "| ___ \               | |                        | |     | ___ \  | | |\n"
+    "| |_/ / ___ _ __   ___| |__  _ __ ___   __ _ _ __| | __  | |_/ / _| | |\n"
+    "| ___ \/ _ \ '_ \ / __| '_ \| '_ ` _ \ / _` | '__| |/ /  | ___ \| | | |\n"
+    "| |_/ /  __/ | | | (__| | | | | | | | | (_| | |  |   <   | |_/ /| | | |\n"
+    "\____/ \___|_| |_|\___|_| |_|_| |_| |_|\__,_|_|  |_|\_\\  \____/ |_|_|_|\n"
 )
 
 
@@ -66,17 +66,23 @@ def run() -> None:
             logging.error(bold_red('Compiling contracts requires "solc" system dependency'))
             sys.exit(1)
 
+    GENERATE_POW_FIXTURE: bool = False
+    if "--generate-pow-fixtures" in sys.argv:
+        logging.info('\n\nGenerating Proof of Work nonce and mix_hash fixtures for all blocks\n')
+        logging.info('Times recorded will be significatly longer\n\n')
+        GENERATE_POW_FIXTURE = True
+
     total_stat = DefaultStat()
 
     benchmarks = [
-        MineEmptyBlocksBenchmark(),
-        ImportEmptyBlocksBenchmark(),
-        SimpleValueTransferBenchmark(TO_EXISTING_ADDRESS_CONFIG),
-        SimpleValueTransferBenchmark(TO_NON_EXISTING_ADDRESS_CONFIG),
-        ERC20DeployBenchmark(),
-        ERC20TransferBenchmark(),
-        ERC20ApproveBenchmark(),
-        ERC20TransferFromBenchmark(),
+        # MineEmptyBlocksBenchmark(GENERATE_POW_FIXTURE),
+        ImportEmptyBlocksBenchmark(GENERATE_POW_FIXTURE),
+        # SimpleValueTransferBenchmark(TO_EXISTING_ADDRESS_CONFIG, GENERATE_POW_FIXTURE),
+        # SimpleValueTransferBenchmark(TO_NON_EXISTING_ADDRESS_CONFIG, GENERATE_POW_FIXTURE),
+        # ERC20DeployBenchmark(GENERATE_POW_FIXTURE),
+        # ERC20Benchmark(ERC20_TRANSFER_CONFIG),
+        # ERC20Benchmark(ERC20_APPROVE_CONFIG),
+        # ERC20Benchmark(ERC20_TRANSFER_FROM_CONFIG),
     ]
 
     for benchmark in benchmarks:

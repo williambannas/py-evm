@@ -1,5 +1,7 @@
 import logging
 import pathlib
+import json
+
 from typing import (
     Tuple,
 )
@@ -46,6 +48,9 @@ from utils.reporting import (
 from utils.tx import (
     new_transaction,
 )
+from eth.consensus.pow import (
+    mine_pow_nonce
+)
 
 FIRST_TX_GAS_LIMIT = 1400000
 SECOND_TX_GAS_LIMIT = 60000
@@ -59,10 +64,8 @@ W3_TX_DEFAULTS = {'gas': 0, 'gasPrice': 0}
 
 
 class BaseERC20Benchmark(BaseBenchmark):
-
-    def __init__(self, num_blocks: int = 100, num_tx: int = 2) -> None:
-        super().__init__()
-
+    POW: dict
+    def __init__(self, make_POW_fixtures:bool, json_fixture: str, num_blocks: int = 100, num_tx: int = 2) -> None:
         self.num_blocks = num_blocks
         self.num_tx = num_tx
         self.contract_interface = get_compiled_contract(
@@ -72,6 +75,9 @@ class BaseERC20Benchmark(BaseBenchmark):
         self.w3 = Web3()
         self.addr1 = Web3.toChecksumAddress(FUNDED_ADDRESS)
         self.addr2 = Web3.toChecksumAddress(SECOND_ADDRESS)
+        self.make_POW_fixtures = make_POW_fixtures
+        self.fixture_file = "./scripts/benchmark/fixtures/erc20_interact/" + json_fixture
+        self.POW = {}
 
     def _setup_benchmark(self, chain: MiningChain) -> None:
         """
@@ -89,14 +95,26 @@ class BaseERC20Benchmark(BaseBenchmark):
     def execute(self) -> DefaultStat:
         total_stat = DefaultStat()
         for chain in get_all_chains():
+
+            # with open(self.fixture_file, 'r') as outfile:
+            #     self.POW = json.load(outfile)
+
             # Perform prepartions on the chain that do not count into the
             # benchmark time
-            self._setup_benchmark(chain)
+            if (not make_POW_fixtures):
+                self._setup_benchmark(chain)
+                chain.mine_block()
+
 
             # Perform the actual work that is measured
             value = self.as_timed_result(
                 lambda: self.mine_blocks(chain, self.num_blocks, self.num_tx)
             )
+
+            if (self.make_POW_fixtures):
+                with open(self.fixture_file, 'w') as outfile:
+                    json.dump(self.POW, outfile, indent=4)
+
             total_gas_used, total_num_tx = value.wrapped_value
             stat = DefaultStat(
                 caption=chain.get_vm().fork,
@@ -109,13 +127,16 @@ class BaseERC20Benchmark(BaseBenchmark):
             self.print_stat_line(stat)
         return total_stat
 
-    def mine_blocks(self, chain: MiningChain, num_blocks: int, num_tx: int) -> Tuple[int, int]:
+    def mine_blocks(self, chain: MiningChain, number_blocks: int, num_tx: int) -> Tuple[int, int]:
         total_gas_used = 0
         total_num_tx = 0
-        for i in range(1, num_blocks + 1):
-            block = self.mine_block(chain, i, num_tx)
-            total_gas_used = total_gas_used + block.header.gas_used
-            total_num_tx = total_num_tx + len(block.transactions)
+        if (self.make_POW_fixtures):
+            self.POW[chain.get_vm().fork], total_num_tx, total_gas_used = self.update_fixture(chain, number_blocks, num_tx)
+        else:
+            for i in range(1, number_blocks + 1):
+                block = self.mine_block(chain, i, num_tx)
+                total_gas_used = total_gas_used + block.header.gas_used
+                total_num_tx = total_num_tx + len(block.transactions)
         return total_gas_used, total_num_tx
 
     def mine_block(self,
@@ -124,7 +145,11 @@ class BaseERC20Benchmark(BaseBenchmark):
                    num_tx: int) -> BaseBlock:
         for i in range(1, num_tx + 1):
             self._apply_transaction(chain)
-        return chain.mine_block()
+
+        nonce = bytes.fromhex(self.POW[vm][str(block_number)]["nonce"])
+        mix_hash = bytes.fromhex(self.POW[vm][str(block_number)]["mix_hash"])
+
+        return chain.mine_block(mix_hash=mix_hash, nonce=nonce)
 
     def _deploy_simple_token(self, chain: MiningChain) -> None:
         # Instantiate the contract
@@ -220,10 +245,42 @@ class BaseERC20Benchmark(BaseBenchmark):
         assert computation.is_success
         assert to_int(computation.output) == 1
 
+    def update_fixture(self, chain: MiningChain, number_blocks: int, num_tx: int) -> dict:
+        POW_fork = {}
+        total_gas_used = 0
+        total_num_tx = 0
+        for i in range(chain.get_block().number, number_blocks + 1):
+            POW_block = {}
+
+            self._setup_benchmark(chain)
+
+
+            for j in range(chain.get().number, num_tx + 1):
+                self._apply_transaction(chain)
+
+            block = chain.get_vm().finalize_block(chain.get_block())
+
+            nonce, mix_hash = mine_pow_nonce(
+                    block.number,
+                    block.header.mining_hash,
+                    block.header.difficulty)
+
+            POW_block["mix_hash"] = mix_hash.hex()
+            POW_block["nonce"] = nonce.hex()
+            POW_fork[i] = POW_block
+            block = chain.mine_block(mix_hash=mix_hash, nonce=nonce)
+
+            total_num_tx = total_num_tx + len(block.transactions)
+            total_gas_used = total_gas_used + block.header.gas_used
+
+        return POW_fork, total_num_tx, total_gas_used
+
+
 
 class ERC20DeployBenchmark(BaseERC20Benchmark):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, make_POW_fixtures: bool) -> None:
+        json_fixture = "ERC20DeployBenchmark.json"
+        super().__init__(make_POW_fixtures, json_fixture)
 
     @property
     def name(self) -> str:
@@ -243,7 +300,6 @@ class ERC20TransferBenchmark(BaseERC20Benchmark):
 
     def _setup_benchmark(self, chain: MiningChain) -> None:
         self._deploy_simple_token(chain)
-        chain.mine_block()
 
     def _apply_transaction(self, chain: MiningChain) -> None:
         self._erc_transfer(self.addr1, chain)
@@ -259,7 +315,6 @@ class ERC20ApproveBenchmark(BaseERC20Benchmark):
 
     def _setup_benchmark(self, chain: MiningChain) -> None:
         self._deploy_simple_token(chain)
-        chain.mine_block()
 
     def _apply_transaction(self, chain: MiningChain) -> None:
         self._erc_approve(self.addr2, chain)
@@ -277,7 +332,6 @@ class ERC20TransferFromBenchmark(BaseERC20Benchmark):
         self._deploy_simple_token(chain)
         self._erc_transfer(self.addr1, chain)
         self._erc_approve(self.addr2, chain)
-        chain.mine_block()
 
     def _apply_transaction(self, chain: MiningChain) -> None:
         self._erc_transfer_from(self.addr1, self.addr2, chain)
